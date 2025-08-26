@@ -3,32 +3,21 @@
 #include <stdio.h>
 #include <assert.h>
 #include <unistd.h>
-#include <termios.h>
 #include <sys/stat.h>
 #include "dynamicarray.h"
 #define ARENA_IMPLEMENTATION
 #include "arena.h"
 #include "filedata.h"
+#include "tui.h"
 
 enum appstate_t {
   as_name_initial = 0x0,
   as_name_insert,
 };
 
-//static size_t listposition = 0;
+static size_t listposition = 0;
 static struct termios org = {0};
 static enum appstate_t as = as_name_initial;
-
-#define settmodraw() do {                    \
-  tcgetattr(STDIN_FILENO, &org);             \
-	struct termios __t__ = org;                \
-  __t__.c_lflag &= ~(ECHO | ICANON);         \
-	tcsetattr(STDIN_FILENO, TCSAFLUSH, &__t__);\
-} while(0);                                  \
-
-#define settmodorg() do {                  \
-	tcsetattr(STDIN_FILENO, TCSAFLUSH, &org);\
-} while(0);                                \
 
 #define puts_then_goto_label(label, msg)\
 do {                                    \

@@ -34,4 +34,22 @@ typedef struct {
 	unsigned char nrep;
 } exercise_t;
 
+#define fd_isalphanum(c)                    \
+							((c) >= 0x30 && (c) <= 0x39 &&\
+							 (c) >= 0x41 && (c) <= 0x5a &&\
+							 (c) >= 0x61 && (c) <= 0x7a ) \
+
+#define fd_isspace(c) ((c) == ' ')
+
+#define fd_ispunct(c)               \
+			((c) >= 0x21 && (c) <= 0x2f &&\
+			 (c) >= 0x3a && (c) <= 0x40 &&\
+			 (c) >= 0x7b && (c) <= 0x7e &&\
+			 (c) >= 0x5b && (c) <= 0x60 ) \
+
+#define isvalidexcercisenamechar(c)\
+							(fd_isalpanum((c))|| \
+							 fd_isspace((c))  || \
+							 fd_ispunct((c))   ) \
+
 #endif  //_FILEDATA_H
