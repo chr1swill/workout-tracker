@@ -11,6 +11,18 @@ typedef struct {
 #define da_len(da) (da)->count
 #define da_reset(da) (da)->count = 0;
 
+#define da_memset(dst, c, n)                  \
+do {                                          \
+	for (size_t __I__ = 0; __I__ < (n); ++__I__)\
+		(dst)[__I__] = (c);                       \
+} while(0);                                   \
+
+#define da_clean(da)                      \
+do {                                      \
+	da_reset((da));                         \
+	da_memset((da)->buffer, 0, (da)->count);\
+} while(0);                               \
+
 #define da_fastbytecopy(d, s, n) \
 do {                             \
 	size_t __I__=0;                \
@@ -25,12 +37,71 @@ do {                               \
 	da_fastbytecopy((d), __T__, (n));\
 } while(0);                        \
 
-#define da_append(da, bytes, n)                             \
-do {                                                        \
-	assert(da_cap((da)) > (n) + (da)->count);                 \
-	da_fastbytecopy(&(da)->buffer[(da)->count], (bytes), (n));\
-	(da)->count += (n);                                       \
-} while(0);                                                 \
+#define da_safecstrlen(cstr, cstrlen, memmaxlen)                    \
+do {                                                                \
+	static_assert(sizeof((cstrlen))==sizeof(size_t));                 \
+	(cstrlen) = 0;                                                    \
+	if ((memmaxlen) != 0)                                             \
+	{                                                                 \
+		for(;(cstr)[(cstrlen)]!='\0'&&(cstrlen)<(memmaxlen);++(cstrlen))\
+	}                                                                 \
+	else                                                              \
+	{                                                                 \
+		while ((cstr)[(cstrlen)]!='\0') ++(cstrlen);                    \
+	}                                                                 \
+} while(0);                                                         \
+
+#define da_cstrlen(cstr, cstrlen)      \
+do {                                   \
+	da_safecstrlen((cstr), (cstrlen), 0);\
+} while(0);                            \
+
+#define da_cstrcap(cstr) sizeof((cstr))
+
+#define da_internal_append(dst, src, n, dstoffset, dstcapacity)\
+do {                                                           \
+  assert((dstcapacity) > (n) + (dstoffset));                   \
+	da_fastbytecopy(&(dst)[(dstoffset)], (src), (n));            \
+	(dstoffset) += (n);                                          \
+} while(0);                                                    \
+
+#define da_fastcstrappend(cstr, src, n, idxofnullbyte)\
+do {                                                  \
+	assert((idxofnullbyte) + (n) <= da_cstrcap((cstr)));\
+	da_internal_append((cstr), (src), (n),     \
+	__SL__, da_cstrcap((cstr)));               \
+	(cstr)[__SL__] = '\0';                     \
+} while(0);                                  \
+
+#define da_safecstrappend(cstr, src, n)      \
+do {                                         \
+	size_t __SL__;                             \
+	da_cstrlen((cstr), __SL__);                \
+	assert(__SL__ + (n) <= da_cstrcap((cstr)));\
+	da_internal_append((cstr), (src), (n),     \
+	__SL__, da_cstrcap((cstr)));               \
+	(cstr)[__SL__] = '\0';                     \
+} while(0);                                  \
+
+#define da_cstrappend(cstr, src, n, idxofnullbyte)\
+do {                                              \
+	if ((idxofnullbyte) < 0) {                      \
+		da_safecstrappend((cstr), (src), (n));        \
+	}                                               \
+	else                                            \
+	{                                               \
+		da_fastcstrappend((cstr), (src), (n),         \
+		(idxofnullbyte));                             \
+	}                                               \
+} while(0);                                       \
+
+#define da_append(da, src, n)\
+do {                         \
+	da_internal_append(        \
+	(da)->buffer, (src),       \
+	(n), (da)->count,          \
+	da_cap((da)));             \
+} while(0);                  \
 
 #define da_prepend(da, bytes, n)                                 \
 do {                                                             \
@@ -40,15 +111,6 @@ do {                                                             \
 	(da)->count += (n);                                            \
 } while(0);                                                      \
 
-#define da_indexof(da, str, strlen, result)\
-do {                                       \
-	assert((strlen) < da_cap((da)));         \
-	ssize_t __T__ = 0;                       \
-	size_t __I__ = 0;                        \
-	for (;__I__ < (da)->count; ++__I__)      \
-
-
-	
 // EXAMPLE
 //
 // int main(void)
@@ -66,5 +128,7 @@ do {                                       \
 // 
 // 	return 0;
 // }
+// // output:
+// 654321
 
 #endif //_DYNAMICARRAY_H
