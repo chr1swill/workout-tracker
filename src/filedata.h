@@ -10,29 +10,32 @@
 #include "arena.h"
 #endif  //_ARENA_H
 
+#ifndef _SPAN_H
+#include "span.h"
+#endif  // _SPAN_H
+
+#define exercisenamemax   16
+#define exercisenreps     (unsigned char)(0-1)
 #define dbfileversion     1
 #define dbfiledir         "/home/chr1swill/code/projects/old/c/workout-tracker/"
 #define dbfilepath        dbfiledir"/file.db"
 
-// [file format]
-//                 /* bytelenth/sizeof(exercise_t)=n_exercise_t */
-// [size_t version|size_t bytelenth|exercise_t data[]]
+#define deffspansizeexercise_t(size)      \
+typedef struct {                          \
+	fspan ## size ## _t name;               \
+	size_t                         duration;\
+	size_t                         distance;\
+	float                          weight;  \
+	unsigned char                  nrep;    \
+} exercise_t;
+
+deffspansizeexercise_t(16);
+
 typedef struct {
 	size_t version;
-	size_t bytelength;
-	exercise_t data[];
+	size_t count;
+	exercise_t *items;
 } filedata_t;
-
-#define exercisenamemax   16
-#define exercisenreps     (unsigned char)(0-1)
-
-typedef struct {
-	unsigned char name[exercisenamemax];
-	size_t        duration;
-	size_t        distance;
-	float         weight;
-	unsigned char nrep;
-} exercise_t;
 
 #define fd_isalphanum(c)                    \
 							((c) >= 0x30 && (c) <= 0x39 &&\
@@ -48,8 +51,8 @@ typedef struct {
 			 (c) >= 0x5b && (c) <= 0x60 ) \
 
 #define isvalidexcercisenamechar(c)\
-							(fd_isalpanum((c))|| \
-							 fd_isspace((c))  || \
+							(fd_isalphanum((c))||\
+							 fd_isspace((c))   ||\
 							 fd_ispunct((c))   ) \
 
 #endif  //_FILEDATA_H

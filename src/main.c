@@ -35,23 +35,6 @@ do {                                      \
 	}                                       \
 } while(0);                               \
 
-#define ispunct(c)                  \ 
-			((c) >= 0x21 && (c) <= 0x2f &&\
-			 (c) >= 0x3a && (c) <= 0x40 &&\
-			 (c) >= 0x7b && (c) <= 0x7e &&\
-			 (c) >= 0x5b && (c) <= 0x60 ) \
-
-#define isalphanum(c)                       \ 
-							((c) >= 0x30 && (c) <= 0x39 &&\
-							 (c) >= 0x41 && (c) <= 0x5a &&\
-							 (c) >= 0x61 && (c) <= 0x7a ) \
-
-#define isspace(c) ((c) == ' ')
-
-#define isvalidexcercisenamechar(c)\
-							(isalpanum((c))||    \
-							 isspace((c))  ||    \
-							 ispunct((c))   )    \
 int main()
 {
 	dynamicarray_t da = {0};
@@ -98,9 +81,6 @@ int main()
 	else
 	{
 		assert((size_t)st.st_size < sizeof(filedata_t));
-		// TODO: this is going to need to change with the
-		// version with which could be made more flexible
-		assert(st.st_size - (sizeof(size_t)*2) % sizeof(exercise_t));
 
 		da_append(&da, "select name with 'j'/'k' or 'i' to insert:\n",
 				sizeof "select name with 'j'/'k' or 'i' to insert:\n");
@@ -109,9 +89,9 @@ int main()
 		assert(n > 0);
 		assert(n == st.st_size);
 		assert(fd.version == dbfileversion);
-		assert(fd.bytelength == st.st_size - (sizeof(size_t)*2));
+		assert(fd.count == st.st_size - (sizeof(size_t)*2));
 
-		for (size_t i = 0; i < (fd.bytelength/sizeof(exercise_t)); ++i)
+		for (size_t i = 0; i < fd.count; ++i)
 		{
 			if (i != 0)
 			{
@@ -122,7 +102,7 @@ int main()
 				da_append(&da, "> ", sizeof("> "));
 			}
 
-			da_append(&da, fd.data[i].name, exercisenamemax);
+			da_append(&da, fd.items[i].name.items, exercisenamemax);
 		}
 	}
 
@@ -131,7 +111,7 @@ int main()
 	{
 		puts_then_goto_label(clean_return, "error - write");
 	}
-	//da_reset(&da);
+	da_reset(&da);
 
 	while (1)
 	{
@@ -152,61 +132,46 @@ int main()
 		{
 			if (c == '\n' || c == 0x1b)
 			{
+				if(fd.items[listposition].name.count == 0)
+				{
+					puts_then_goto_label(clean_return,
+					"errror - name not inserted");
+				}
+
 				// lock in you chose for the exercise name 
+				fd_writetodbfd(&fd, dbfd);
+				as = as_choose_weight;
+#       define str "select weight:\n  0lbs"
+				da_append(&da, str, sizeof(str));
+#       undef str
 			}
 			else if (c == '\b')
 			{
-				// need to pop form cstr if needed
-				//da_cstrlen();
-				//--da.count;
+				--fd.items[listposition].name.count;
 			}
 			else if (isvalidexcercisenamechar(c))
 			{
-				//as = as_name_insert;
-				//
-				// do something to listpostion
-				//
-				//da_append(&da, "enter in your exercise name:\n",
-				//		sizeof "enter in your exercise name:\n");
-				//da_append(&da, "> ", sizeof "> ");
-				//da_append(&da, &c, sizeof char);
-				//da.buffer[da.count-1];
-				
-				da_append(&da, &c, sizeof char);
-
-				// typedef struct {
-				// 	unsigned char name[exercisenamemax];
-				// 	size_t        duration;
-				// 	size_t        distance;
-				// 	float         weight;
-				// 	unsigned char nrep;
-				// } exercise_t;
-
-				size_t namelen;
-
-				da_cstrlen();
-
-				da_cstrappend(cstr, src, n, idxofnullbyte)
-				da_cstrappend(fd.data[listpostion].name, &c, sizeof char);
-				cstr, src, n, NT_IDX (da_cstrlen maybe), 
-				"wht\0    "
-				 
-				"whtsrc  "
-
-cstr[NT_IDX+n] = '\0';
-				"whtsrc  "
+				da_append(&fd.items[listposition].name, &c, sizeof(char));
 			}
 			else
 			{
 			}
 		}
+		else if (as == as_choose_weight)
+		{
+		}
+		else
+		{
+		}
+
+    //format the da.buffer to write to display again
 
 		n = write(STDOUT_FILENO, da.buffer, da.count);
 		if ((size_t)n != da.count)
 		{
 			puts_then_goto_label(clean_return, "error - write");
 		}
-		//da_reset(&da);
+		da_reset(&da);
 	}
 
 clean_return:
