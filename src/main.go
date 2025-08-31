@@ -5,7 +5,6 @@ import (
 		"html/template"
     "database/sql"
 		"net/http"
-		"reflect"
 		"fmt"
 )
 
@@ -14,11 +13,20 @@ const (
 	DBFILEPATH = "./file.db"
 )
 
+type AnyStruct interface {
+	IsStruct()
+}
+
 type ExerciseType int;
 
 const (
   ETCardio ExerciseType = iota
   ETStrength
+)
+
+const (
+  ExerciseNameLenMin = 1
+  ExerciseNameLenMax = 32
 )
 
 type Exercise struct {
@@ -27,10 +35,26 @@ type Exercise struct {
 	Type ExerciseType
 }
 
+func (Exercise) IsStruct() {}
+
+func (e *Exercise)fromFormValuesCheckValidity() bool {
+	if len(e.Name) < ExerciseNameLenMin {
+		return false;
+  }
+
+	if len(e.Name) > ExerciseNameLenMax {
+		return false;
+	}
+
+	return true;
+}
+
 type Weight struct {
 	Id          uint64
 	WeightInLbs float32
 }
+
+func (Weight) IsStruct() {}
 
 type WorkoutLog struct {
 	Id         uint64
@@ -89,7 +113,10 @@ func initdb(db *sql.DB) error {
  	    references exercises (id)
 	  foreign key (weight_id)
 	   references weights (id)
-	);`);
+	);
+
+	insert into exercises(type, name) values (0, "bicep curl");
+	`);
 	check_rollback(&err, tx);
 	if err != nil {
 		return err;
@@ -120,37 +147,63 @@ func initdb(db *sql.DB) error {
 	} else {        return nil; }
 }
 
-func dbselectall[T interface{}](db *sql.DB, table string) ([]T, error) {
-	var item T;
+func dbselectallexercises(db *sql.DB) ([]Exercise, error) {
+	var item Exercise;
 	var err error;
 	var tx *sql.Tx;
-	var result []T;
+	var result []Exercise;
 	var rows *sql.Rows;
-
-	if t := reflect.TypeOf(item); t.Kind() != reflect.Struct {
-		return nil, fmt.Errorf(
-		  "error - generic fuction type was not a struct\n");
-	}
 
 	tx, err = db.Begin();
 	if err != nil { return nil, err };
 	
-	rows, err = tx.Query(fmt.Sprintf("select * from %s;", table));
+	rows, err = tx.Query("select * from exercises;");
 	check_rollback(&err, tx);
 	if err != nil { return nil, err };
   defer rows.Close();
   
 	for rows.Next() {
-    s := reflect.ValueOf(&item).Elem();
-		n := s.NumField();
-		cols := make([]interface{}, n);
+		var id    uint64
+		var name  string
+		var etype ExerciseType
 
-		for i := 0; i < n; i++ {
-			field := s.Field(i);
-			cols[i] = field.Addr().Interface();
-		}
+		err = rows.Scan(&id, &etype, &name);
+		check_rollback(&err, tx);
+		if err != nil { return nil, err };
 
-		err = rows.Scan(cols ...);
+		item.Id = id;
+		item.Type = etype;
+		item.Name = name;
+
+		result = append(result, Exercise{ Id: id, Type: etype, Name: name });
+	}
+
+	err = tx.Commit()
+	check_rollback(&err, tx);
+	if err != nil {
+		return nil, err;
+	} else {
+		return result, nil;
+	}
+}
+
+func dbselectallweights(db *sql.DB) ([]Weight, error) {
+	var item Weight;
+	var err error;
+	var tx *sql.Tx;
+	var result []Weight;
+	var rows *sql.Rows;
+
+	tx, err = db.Begin();
+	if err != nil { return nil, err };
+	
+	rows, err = tx.Query("select * from weights;");
+	check_rollback(&err, tx);
+	if err != nil { return nil, err };
+  defer rows.Close();
+  
+	for rows.Next() {
+		err = rows.Scan(&item.Id, &item.WeightInLbs);
 		check_rollback(&err, tx);
 		if err != nil { return nil, err };
 
@@ -163,6 +216,28 @@ func dbselectall[T interface{}](db *sql.DB, table string) ([]T, error) {
 		return nil, err;
 	} else {
 		return result, nil;
+	}
+}
+
+func dbinsertexercises(db *sql.DB, e *Exercise) error {
+	var err error;
+	var tx *sql.Tx;
+
+	tx, err = db.Begin();
+	check(err);
+	
+	_, err = tx.Exec(`
+			insert into exercises(type, name) values (?, ?);`,
+			e.Type, e.Name);
+	check_rollback(&err, tx);
+	if err != nil { return err };
+
+	err = tx.Commit()
+	check_rollback(&err, tx);
+	if err != nil {
+		return err;
+	} else {
+		return nil;
 	}
 }
 
@@ -183,24 +258,68 @@ func main() {
 
 	tmpl = template.Must(template.ParseGlob("tmpl/*.html"));
 
+	mux.HandleFunc("/add_exercise_name/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed",
+			http.StatusMethodNotAllowed);
+			return
+		}
+
+		var valid bool;
+		var exercise Exercise;
+		
+		valid = true;
+		if s := r.FormValue("type"); s != "" {
+			if s == "strength" {
+				exercise.Type = ETStrength;
+			} else if s == "cardio" {
+				exercise.Type = ETCardio;
+			} else {
+				valid = false;
+			}
+		} else {
+			valid = false;
+		}
+
+		if s := r.FormValue("name"); s != "" {
+			exercise.Name = s;
+		} else {
+			valid = false;
+		}
+		
+		if valid {
+			// add new exercise to db
+			err = dbinsertexercises(db, &exercise);
+			if err != nil {
+				fmt.Println(err);
+			}
+		}
+
+		http.Redirect(w, r, "/", http.StatusSeeOther);
+	});
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed);
 			return
 		}
 
-		var weights []Weight;
-		var exercises []Exercise;
+		var data struct{ 
+			Exercises []Exercise
+		  Weights   []Weight
+		};
 
-		exercises, err = dbselectall[Exercise](db, "exercises");
+		data.Exercises, err = dbselectallexercises(db);
 		if err != nil {
-			print(err)
+			fmt.Printf("error oh no - %s\n", err);
+			return
+
 		  http.Error(w, "Internal server error",
 			http.StatusInternalServerError);
 			return
 		}
 
-		weights, err = dbselectall[Weight](db, "weights");
+		data.Weights, err = dbselectallweights(db);
 		if err != nil {
 			fmt.Println(err)
 		  http.Error(w, "Internal server error",
@@ -208,12 +327,7 @@ func main() {
 			return
 		}
 
-		err = tmpl.ExecuteTemplate(w, "index.html",
-				struct{
-					Exercises []Exercise
-					Weights   []Weight }{ 
-					Exercises: exercises,
-					Weights: weights });
+		err = tmpl.ExecuteTemplate(w, "index.html", data);
 		if err != nil {
 			fmt.Println(err)
 			http.Error(w, "Internal server error",
