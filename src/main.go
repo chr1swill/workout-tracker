@@ -90,10 +90,6 @@ func initdb(db *sql.DB) error {
 	_, err = tx.Exec(`
 	pragma foreign_keys = ON;
 
-	drop table weights;
-	drop table workout_log;
-	drop table exercises;
-
 	create table if not exists exercises(
 	  id integer primary key autoincrement,
 	  type integer not null,
@@ -113,10 +109,7 @@ func initdb(db *sql.DB) error {
  	    references exercises (id)
 	  foreign key (weight_id)
 	   references weights (id)
-	);
-
-	insert into exercises(type, name) values (0, "bicep curl");
-	`);
+	);`);
 	check_rollback(&err, tx);
 	if err != nil {
 		return err;
@@ -148,9 +141,9 @@ func initdb(db *sql.DB) error {
 }
 
 func dbselectallexercises(db *sql.DB) ([]Exercise, error) {
-	var item Exercise;
 	var err error;
 	var tx *sql.Tx;
+	var item Exercise;
 	var result []Exercise;
 	var rows *sql.Rows;
 
@@ -163,19 +156,11 @@ func dbselectallexercises(db *sql.DB) ([]Exercise, error) {
   defer rows.Close();
   
 	for rows.Next() {
-		var id    uint64
-		var name  string
-		var etype ExerciseType
-
-		err = rows.Scan(&id, &etype, &name);
+		err = rows.Scan(&item.Id, &item.Type, &item.Name);
 		check_rollback(&err, tx);
 		if err != nil { return nil, err };
 
-		item.Id = id;
-		item.Type = etype;
-		item.Name = name;
-
-		result = append(result, Exercise{ Id: id, Type: etype, Name: name });
+		result = append(result, item);
 	}
 
 	err = tx.Commit()
