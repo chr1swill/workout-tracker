@@ -6,7 +6,6 @@ import (
     "database/sql"
 		"net/http"
 		"reflect"
-		"errors"
 		"fmt"
 )
 
@@ -121,56 +120,7 @@ func initdb(db *sql.DB) error {
 	} else {        return nil; }
 }
 
-func dbSelectAllByPosition[T any](db *sql.DB, table string) ([]T, error) {
-	var result []T
-
-	// confirm T is a struct
-	var sample T
-	t := reflect.TypeOf(sample)
-	if t == nil || t.Kind() != reflect.Struct {
-		return nil, errors.New("generic type T must be a struct")
-	}
-
-	rows, err := db.Query(fmt.Sprintf("SELECT * FROM %s;", table))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	// For each row, create a *T, build a slice of pointers to its fields, rows.Scan into them.
-	for rows.Next() {
-		// create pointer to a new T
-		ptr := reflect.New(t)    // *T, Value
-		val := ptr.Elem()        // T, Value
-
-		// prepare []interface{} of field addresses
-		num := t.NumField()
-		scanArgs := make([]interface{}, num)
-		for i := 0; i < num; i++ {
-			field := val.Field(i)
-			// use Addr() only for settable fields (exported). Unexported fields will panic.
-			if !field.CanAddr() {
-				return nil, fmt.Errorf("field %s is unexported; cannot scan into it", t.Field(i).Name)
-			}
-			scanArgs[i] = field.Addr().Interface()
-		}
-
-		if err := rows.Scan(scanArgs...); err != nil {
-			return nil, err
-		}
-
-		// append the dereferenced struct value
-		result = append(result, ptr.Elem().Interface().(T))
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-func dbselectall[T []interface{}](db *sql.DB, table string) ([]T, error) {
+func dbselectall[T interface{}](db *sql.DB, table string) ([]T, error) {
 	var item T;
 	var err error;
 	var tx *sql.Tx;
@@ -191,48 +141,16 @@ func dbselectall[T []interface{}](db *sql.DB, table string) ([]T, error) {
   defer rows.Close();
   
 	for rows.Next() {
-		//for i := 0; i < v.NumField(); i++ {
-		//	item[vType.Field(i).Name] = v.Field(i).Interface();
-		//}
+    s := reflect.ValueOf(&item).Elem();
+		n := s.NumField();
+		cols := make([]interface{}, n);
 
-    //fields := reflect.VisibleFields(reflect.TypeOf(items));
-		//for i, field := range fields {
-		//	i
-		//}
+		for i := 0; i < n; i++ {
+			field := s.Field(i);
+			cols[i] = field.Addr().Interface();
+		}
 
-		err = rows.Scan(&item);
-		check_rollback(&err, tx);
-		if err != nil { return nil, err };
-
-		result = append(result, item);
-	}
-
-	err = tx.Commit()
-	check_rollback(&err, tx);
-	if err != nil {
-		return nil, err;
-	} else {
-		return result, nil;
-	}
-}
-
-func dbselectallweights(db *sql.DB) ([]Weight, error) {
-	var item Weight;
-	var err error;
-	var tx *sql.Tx;
-	var result []Weight;
-	var rows *sql.Rows;
-
-	tx, err = db.Begin();
-	if err != nil { return nil, err };
-	
-	rows, err = tx.Query("select * from weights;");
-	check_rollback(&err, tx);
-	if err != nil { return nil, err };
-  defer rows.Close();
-  
-	for rows.Next() {
-		err = rows.Scan(&item);
+		err = rows.Scan(cols ...);
 		check_rollback(&err, tx);
 		if err != nil { return nil, err };
 
@@ -274,7 +192,7 @@ func main() {
 		var weights []Weight;
 		var exercises []Exercise;
 
-		exercises, err = dbSelectAllByPosition[Exercise](db, "exercises");
+		exercises, err = dbselectall[Exercise](db, "exercises");
 		if err != nil {
 			print(err)
 		  http.Error(w, "Internal server error",
@@ -282,9 +200,9 @@ func main() {
 			return
 		}
 
-		weights, err = dbSelectAllByPosition[Weight](db, "weights");
+		weights, err = dbselectall[Weight](db, "weights");
 		if err != nil {
-			print(err)
+			fmt.Println(err)
 		  http.Error(w, "Internal server error",
 			http.StatusInternalServerError);
 			return
