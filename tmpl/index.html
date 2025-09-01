@@ -6,27 +6,8 @@
   <body>
 		<section>
 		  <form method="post" action="/add_exercise_name/">
-		  	<fieldset>
-		  	  <legend>Select Exercise Type:</legend>
-
-		  	  <input
-		  		type="radio"
-		  		id="cardio"
-		  		name="type"
-		  		value="cardio" required></input>
-		  	  <label for="cardio">Cardio</label><br>
-
-		  	  <input 
-		  		type="radio"
-		  		id="strength"
-		  		name="type"
-		  		value="strength" checked required></input>
-		  	  <label for="strength">Strength</label><br>
-		  	</fieldset>
-
-		  	<fieldset>
-		  	  <legend>Select Exercise Type:</legend>
-		  	  <label for="name">Enter Name:</label>
+		  	  <legend>Add New Exercise Name:</legend>
+		  	  <label for="name" style="display: none;">Input the name of your exercise please</label>
 		  	  <input id="name" name="name" min="1" max="32" required></input>
 		  	</fieldset>
 
@@ -35,27 +16,14 @@
 		  </section>
 
 		<section>
-		  <form method="post" action="/add_exercise/">
+		  <form method="post" action="/add_workout_log/">
 		    <fieldset>
-		  	  <!--
-		  		TODO: Would be a cool feture if as
-		  		you change add event type radio above
-		  		it should dynamically swap this list aswell
-		  		if caching with the db is set up on the client
-		  		correctly then doing that can be suuuuuuper fast
-		  		-->
 		  	  <legend>Select Excercise:</legend>
-		  	  <!--
-		  	  Doing like for loop over the date to
-		  	  create each excercise name on the server 
-		  	  -->
 		  		<label for="exercise" style="display: none;">Choose your exercise name.</label>
 		  		<select id="exercise" name="exercise" required>
 					  {{ range .Exercises }}
 		  		  <option 
-						value="{{ .Name }}" 
-						data-id="{{ .Id }}" 
-						data-type="{{ .Type }}">{{ .Name }}</option>
+						value="{{ .Id }}">{{ .Name }}</option>
 					  {{ end }}
 		  		</select>
 		    </fieldset>
@@ -65,18 +33,67 @@
 		  		<label for="weight" style="display: none;">Choose weight value in pounds.</label>
 		  		<select id="weight" name="weight" required>
 					  {{ range .Weights }}
-						<option 
-						data-id="{{ .Id }}"
-						value="{{- .WeightInLbs -}}">{{- .WeightInLbs }} lbs</option>
+						<option value="{{ . }}">{{- . }} lbs</option>
 						{{ end }}
 		  		</select>
 		    </fieldset>
+
 		  	<fieldset>
 		  	  <legend>Select Number of Reps:</legend>
-		  	  <label for="number_of_reps">Name:</label>
-		  	  <input id="number_of_reps" name="number_of_reps" type="number" min="1" required></input>
+		  	  <label
+					for="nreps" 
+					style="display: none;">Add the Number of Reps You Completed</label>
+		  	  <input
+					id="nreps"
+					name="nreps"
+					type="number"
+					inputmode="numeric"
+					value="1"
+					min="1"
+					required></input>
 		  	</fieldset>
 
+		  	<fieldset>
+		  	  <legend>Select Duration In Seconds:</legend>
+		  	  <label
+					for="durationseconds" 
+					style="display: none;">This is the number of seconds total it took to complete your event</label>
+		  	  <input
+					id="durationseconds"
+					name="durationseconds"
+					type="number"
+					inputmode="numeric"
+					value="0"
+					required></input>
+		  	</fieldset>
+
+		  	<fieldset>
+		  	  <legend>Select Distance Travelled in Metres:</legend>
+		  	  <label
+					for="nreps" 
+					style="display: none;">This is the number of metres total you covered over the event</label>
+		  	  <input
+					id="distancemetres"
+					name="distancemetres"
+					type="number"
+					inputmode="numeric"
+					value="0"
+					required></input>
+		  	</fieldset>
+
+		  	<fieldset>
+		  	  <legend>Notes:</legend>
+		  	  <label
+					for="notes"
+					style="display: none;">Additional Notes</label>
+		  	  <input
+					id="notes"
+					name="notes"
+					type="text"
+					min="0"
+					max="256"
+				  ></input>
+		  	</fieldset>
 		    <button type="submit">submit</button>
 		  </form>
 		</section>
