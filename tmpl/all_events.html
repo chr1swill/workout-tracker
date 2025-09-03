@@ -34,8 +34,8 @@ td, th { padding: 0px 16px; border: 1px solid gray; }
     
       {{- range $i, $v := .Workouts -}}
       <tr>
-			  {{- $GOCONSTDATETIME := "2006-01-02 15:04:05" -}}
-        <td>{{- .Date.Format $GOCONSTDATETIME -}}</td>
+			  {{- $FORMATDATETIME := "2006-01-02 15:04:05" -}}
+        <td>{{- .Date.Format $FORMATDATETIME -}}</td>
     
     		{{- range $j, $w := $exercises -}}
     		  {{- if eq $v.ExerciseId $w.Id -}}
