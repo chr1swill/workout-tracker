@@ -3,6 +3,7 @@ package main
 import (
   "database/sql"
   "net/http"
+	"time"
 )
 
 const (
@@ -58,7 +59,7 @@ type Workout struct {
 	DurationSeconds uint64
 	NReps           uint64
 	DistanceMetres  uint64
-	Date            string
+	Date            time.Time
 	Notes           string
 }
 
@@ -78,16 +79,14 @@ func initdb(db *sql.DB) error {
 
   create table if not exists workouts(
 	  exerciseid integer not null,
-	  weightid integer not null,
+	  weight real not null,
 		durationseconds integer not null,
 	  nreps integer not null,
 	  distancemetres integer not null,
-	  date string not null,
+	  date integer not null,
 	  notes string,
 	  foreign key (exerciseid)
  	    references exercises (id)
-	  foreign key (weightid)
-	   references weights (id)
 	);`);
 	check_rollback(&err, tx);
 	if err != nil {
@@ -118,6 +117,44 @@ func dbselectallexercises(db *sql.DB) ([]Exercise, error) {
 	for rows.Next() {
 		err = rows.Scan(&item.Id, &item.Name);
 		check_rollback(&err, tx);
+		if err != nil { return nil, err };
+
+		result = append(result, item);
+	}
+
+	err = tx.Commit()
+	check_rollback(&err, tx);
+	if err != nil {
+		return nil, err;
+	} else {
+		return result, nil;
+	}
+}
+
+func dbselectallworkouts(db *sql.DB) ([]Workout, error) {
+	var err error;
+	var tx *sql.Tx;
+	var item Workout;
+	var result []Workout;
+	var rows *sql.Rows;
+
+	tx, err = db.Begin();
+	if err != nil { return nil, err };
+	
+	rows, err = tx.Query("select * from workouts;");
+	check_rollback(&err, tx);
+	if err != nil { return nil, err };
+  defer rows.Close();
+  
+	for rows.Next() {
+		var b []byte;
+		err = rows.Scan(&item.ExerciseId,
+		&item.Weight, &item.DurationSeconds, &item.NReps,
+		&item.DistanceMetres, &b, &item.Notes);
+		check_rollback(&err, tx);
+		if err != nil { return nil, err };
+
+		err = item.Date.UnmarshalText(b);
 		if err != nil { return nil, err };
 
 		result = append(result, item);

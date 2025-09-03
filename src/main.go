@@ -44,7 +44,6 @@ func main() {
 	mux = http.NewServeMux();
 
 	tmpl = template.Must(template.ParseGlob("tmpl/*.html"));
-
 	mux.HandleFunc("/add_workout_log/",
 	func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -60,7 +59,7 @@ func main() {
 
 			err = wl.InsertToDB(db);
       if  err != nil {
-				fmt.Println("error wl.inserttodb - %v", err);
+				fmt.Printf("error wl.inserttodb - %v\n", err);
 			}
 		}
 
@@ -87,6 +86,42 @@ func main() {
 		http.Redirect(w, r, "/", http.StatusSeeOther);
 	});
 
+	mux.HandleFunc("/all_events/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed);
+			return
+		}
+
+		var data struct {
+			Workouts []Workout;
+			Exercises []Exercise;
+		}
+
+		data.Workouts, err = dbselectallworkouts(db);
+		if err != nil {
+		  http.Error(w, "Internal server error",
+			http.StatusInternalServerError);
+			return
+		}
+		fmt.Printf("data.Workouts=%v\n", data.Workouts);
+
+		data.Exercises, err = dbselectallexercises(db);
+		if err != nil {
+		  http.Error(w, "Internal server error",
+			http.StatusInternalServerError);
+			return
+		}
+		fmt.Printf("data.Exercises=%v\n", data.Exercises);
+
+		err = tmpl.ExecuteTemplate(w, "all_events.html", data);
+		if err != nil {
+			fmt.Println(err)
+			http.Error(w, "Internal server error",
+					http.StatusInternalServerError);
+			return
+		}
+	});
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed);
@@ -100,9 +135,6 @@ func main() {
 
 		data.Exercises, err = dbselectallexercises(db);
 		if err != nil {
-			fmt.Printf("error oh no - %s\n", err);
-			return
-
 		  http.Error(w, "Internal server error",
 			http.StatusInternalServerError);
 			return

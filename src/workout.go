@@ -10,8 +10,6 @@ import (
 
 const (
   WNOTESMAXLEN        = 256
-	WTIMEFORMATDEFAULT  = "2025-01-02T15:04:05Z07:00"
-	WTIMEFORMATSIMPLE   = "2025-09-30"
 )
 
 func (w *Workout)FromFormValuesCheckValidity(r *http.Request) bool {
@@ -30,7 +28,7 @@ func (w *Workout)FromFormValuesCheckValidity(r *http.Request) bool {
 }
 
 func (w *Workout)TimeStamp() {
-	w.Date = time.Now().Format(WTIMEFORMATDEFAULT);
+	w.Date = time.Now();
 }
 
 func validasignintofloat64value(valid *bool, r *http.Request, wlvalue *float64, formvalue string) {
@@ -94,27 +92,34 @@ func (w *Workout)validasigndistancemetres(valid *bool, r *http.Request) {
 func (w *Workout)validasignnotes(valid *bool, r *http.Request) {
 	var s string;
 
-	if s = r.FormValue("notes"); len(s) > WNOTESMAXLEN {
+	if s = r.FormValue("notes"); len(s) < WNOTESMAXLEN {
+		w.Notes = s;
+	} else {
 		*valid = false;
 	}
 }
 
 func(w *Workout)InsertToDB(db *sql.DB) error {
+	var b []byte;
 	var err error;
 	var tx *sql.Tx;
 
 	tx, err = db.Begin();
 	check(err);
 
+	b, err = w.Date.MarshalText();
+	check_rollback(&err, tx);
+	if err != nil { return err };
+
 	_, err = tx.Exec(
 			`insert into workouts(
-			exerciseid, weightid,
+			exerciseid, weight,
 			durationseconds, nreps,
 			distancemetres, date, notes)
 			values (?, ?, ?, ?, ?, ?, ?);`,
 			w.ExerciseId, w.Weight,
 			w.DurationSeconds, w.NReps,
-			w.DistanceMetres, w.Date, w.Notes);
+			w.DistanceMetres, b, w.Notes);
 	check_rollback(&err, tx);
 	if err != nil { return err };
 

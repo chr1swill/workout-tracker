@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<head>
+<title>All Event Page</title>
+<style>
+* { background-color: black; color: lightgray; }
+header { display: flex; align-items: center; gap: 8px; }
+.h1, header a { font-size: 18px; }
+td, th { padding: 0px 16px; border: 1px solid gray; }
+</style>
+</head>
+<body>
+
+  <header>
+    <a href="/">Home</a>
+    <h1 class="h1">All Workouts</h1>
+  </header>
+  
+  <main>
+    <table>
+    <thead>
+      <tr>
+        <th scope="col">Date</th>
+        <th scope="col">Exercise Name</th>
+        <th scope="col">Weight lbs.</th>
+        <th scope="col">No. of Reps</th>
+        <th scope="col">Duration second(s)</th>
+        <th scope="col">Distance metre(s)</th>
+        <th scope="col">Notes</th>
+      <tr>
+    </thead>
+    <tbody>
+      {{- $exercises := .Exercises -}}
+    
+      {{- range $i, $v := .Workouts -}}
+      <tr>
+			  {{- $GOCONSTDATETIME := "2006-01-02 15:04:05" -}}
+        <td>{{- .Date.Format $GOCONSTDATETIME -}}</td>
+    
+    		{{- range $j, $w := $exercises -}}
+    		  {{- if eq $v.ExerciseId $w.Id -}}
+          <td>{{- $w.Name -}}</td>
+    			{{- end -}}
+    		{{- end -}}
+    
+    		<td>{{- .Weight -}}</td>
+    		<td>{{- .NReps -}}</td>
+    		<td>{{- .DurationSeconds -}}</td>
+    		<td>{{- .DistanceMetres -}}</td>
+    		<td>{{- .Notes -}}</td>
+      </tr>
+      {{ end }}
+    </tbody>
+    </table>
+  </main>
+</body>
+</html>
