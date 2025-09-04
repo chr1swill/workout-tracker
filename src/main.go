@@ -86,7 +86,7 @@ func main() {
 		http.Redirect(w, r, "/", http.StatusSeeOther);
 	});
 
-	mux.HandleFunc("/all_events/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/all_workouts/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed);
 			return
@@ -113,7 +113,7 @@ func main() {
 		}
 		fmt.Printf("data.Exercises=%v\n", data.Exercises);
 
-		err = tmpl.ExecuteTemplate(w, "all_events.html", data);
+		err = tmpl.ExecuteTemplate(w, "all_workouts.html", data);
 		if err != nil {
 			fmt.Println(err)
 			http.Error(w, "Internal server error",

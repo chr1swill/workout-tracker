@@ -3,7 +3,9 @@ package main
 import (
   "database/sql"
   "net/http"
+	"reflect"
 	"time"
+	"fmt"
 )
 
 const (
@@ -99,6 +101,82 @@ func initdb(db *sql.DB) error {
 	} else {        return nil; }
 }
 
+func gettable[T any](rows *sql.Rows) ([]T, error) {
+	var n_struct_members int;
+	var _struct reflect.Value;
+	var field reflect.Value;
+	var members []interface{}
+	var table []T;
+	var member T;
+
+	for rows.Next() {
+		_struct = reflect.ValueOf(&member).Elem();
+		n_struct_members = _struct.NumField();
+		// instead of columns should be called "struct fields/members"
+		// duck type struct builde
+		members = make([]interface{}, n_struct_members);
+
+		for i := 0; i < n_struct_members; i++ {
+			field = _struct.Field(i);
+			members[i] = field.Addr().Interface();
+		}
+
+		if err := rows.Scan(members...); err != nil {
+			return nil, err;
+		}
+
+		table = append(table, member);
+	}
+
+	return table, nil;
+}
+
+func dbselectall[T any](db *sql.DB, table string) ([]T, error) {
+	var member T;
+	var err error;
+	var tx *sql.Tx;
+	var members []interface{};
+	var tabledata []T
+	var rows *sql.Rows;
+
+	tx, err = db.Begin();
+	check(err);
+
+	rows, err = tx.Query(fmt.Sprintf("select * from %s;", table));
+	check_rollback(&err, tx);
+	if err != nil { return nil, err; }
+	defer rows.Close();
+	
+	for rows.Next() {
+    structure := reflect.ValueOf(&member).Elem();
+    n_structure_fields := structure.NumField();
+    
+    members = make([]interface{}, n_structure_fields);
+    
+    for i := 0; i < n_structure_fields; i++ {
+      field := structure.Field(i);
+      members[i] = field.Addr().Interface();
+    }
+
+    err := rows.Scan(members...);
+	  check_rollback(&err, tx);
+    if err != nil { return nil, err; }
+
+		tabledata = append(tabledata, member);
+  }
+
+	check_rollback(&err, tx);
+	if err != nil { return nil, err };
+
+	err = tx.Commit()
+	check_rollback(&err, tx);
+	if err != nil {
+		return nil, err;
+	} else {
+		return tabledata, nil;
+	}
+}
+
 func dbselectallexercises(db *sql.DB) ([]Exercise, error) {
 	var err error;
 	var tx *sql.Tx;
@@ -169,14 +247,14 @@ func dbselectallworkouts(db *sql.DB) ([]Workout, error) {
 	}
 }
 
-func intodbtransation(db *sql.DB, handler func() error) error {
+func intodbtransation(db *sql.DB, handler func(tx *sql.Tx) error) error {
 	var err error;
 	var tx *sql.Tx;
 
 	tx, err = db.Begin();
 	check(err);
 
-	err = handler();
+	err = handler(tx);
 	check_rollback(&err, tx);
 	if err != nil { return err };
 
@@ -191,21 +269,18 @@ func intodbtransation(db *sql.DB, handler func() error) error {
 
 func dbinsertexercises(db *sql.DB, e *Exercise) error {
 	var err error;
-	var tx *sql.Tx;
 
-	err = intodbtransation(db, func() error {
+	return intodbtransation(db, func(tx *sql.Tx) error {
 			_, err = tx.Exec(`
 					insert into exercises(name) values (?);`, e.Name);
 			return err;
 	});
-	return err;
 }
 
 func dbinsertworkoutlog(db *sql.DB, w *Workout) error {
 	var err error;
-	var tx *sql.Tx;
 
-	err = intodbtransation(db, func() error {
+	return intodbtransation(db, func(tx *sql.Tx) error {
 			_, err = tx.Exec(`
 					insert into workouts(exerciseid,
 					weightid, date, n_reps, notes, durationseconds, distancemetres)
@@ -214,5 +289,4 @@ func dbinsertworkoutlog(db *sql.DB, w *Workout) error {
 					w.NReps, w.Notes, w.DurationSeconds, w.DistanceMetres);
 			return err;
 	});
-	return err;
 }
