@@ -5,6 +5,7 @@ import (
 		"html/template"
     "database/sql"
 		"net/http"
+		"strconv"
 		"fmt"
 )
 
@@ -44,6 +45,57 @@ func main() {
 	mux = http.NewServeMux();
 
 	tmpl = template.Must(template.ParseGlob("tmpl/*.html"));
+
+	mux.HandleFunc("/remove_workout/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed",
+			http.StatusMethodNotAllowed);
+			return;
+		}
+
+		var s string;
+    var id uint64;
+    var err error;
+		var tx *sql.Tx;
+
+		s = r.FormValue("id");
+		fmt.Printf("got back id=%s\n", s);
+		if  s == "" {
+			http.Redirect(w, r, "/all_workouts/", http.StatusSeeOther);
+			return;
+		}
+
+		id, err = strconv.ParseUint(s, 10, 64);
+		fmt.Printf("id as uint64=%d\n", id);
+		if err != nil {
+			fmt.Printf("strconv.ParseUint - %v\n", err);
+			http.Redirect(w, r, "/all_workouts/", http.StatusSeeOther);
+			return;
+		}
+
+		tx, err  = db.Begin();
+		if err != nil {
+			fmt.Printf("db.Begin() - %v\n", err);
+			http.Redirect(w, r, "/all_workouts/", http.StatusSeeOther);
+			return;
+		}
+
+		_, err = tx.Exec("delete from workouts where id = ?;", id);
+		check_rollback(&err, tx); 
+		if err != nil {
+			fmt.Printf("tx.Exec - %v\n", err);
+			http.Redirect(w, r, "/all_workouts/", http.StatusSeeOther);
+			return;
+		}
+
+		err = tx.Commit();
+		check_rollback(&err, tx); 
+		if err != nil { fmt.Printf("tx.Commit() - %v\n", err); }
+
+		http.Redirect(w, r, "/all_workouts/", http.StatusSeeOther);
+		return;
+	});
+
 	mux.HandleFunc("/add_workout_log/",
 	func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -97,13 +149,13 @@ func main() {
 			Exercises []Exercise;
 		}
 
-		data.Workouts, err = dbselectallworkouts(db);
+		data.Workouts, err = dbselectall[Workout](db, "workouts");
 		if err != nil {
+			fmt.Printf("dbselectallworkouts - %v\n", err);
 		  http.Error(w, "Internal server error",
 			http.StatusInternalServerError);
 			return
 		}
-		fmt.Printf("data.Workouts=%v\n", data.Workouts);
 
 		data.Exercises, err = dbselectallexercises(db);
 		if err != nil {
@@ -111,7 +163,6 @@ func main() {
 			http.StatusInternalServerError);
 			return
 		}
-		fmt.Printf("data.Exercises=%v\n", data.Exercises);
 
 		err = tmpl.ExecuteTemplate(w, "all_workouts.html", data);
 		if err != nil {

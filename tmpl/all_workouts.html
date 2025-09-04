@@ -27,6 +27,7 @@ td, th { padding: 0px 16px; border: 1px solid gray; }
         <th scope="col">Duration second(s)</th>
         <th scope="col">Distance metre(s)</th>
         <th scope="col">Notes</th>
+        <th scope="col">Click To Delete Row</th>
       <tr>
     </thead>
     <tbody>
@@ -34,8 +35,7 @@ td, th { padding: 0px 16px; border: 1px solid gray; }
     
       {{- range $i, $v := .Workouts -}}
       <tr>
-			  {{- $FORMATDATETIME := "2006-01-02 15:04:05" -}}
-        <td>{{- .Date.Format $FORMATDATETIME -}}</td>
+        <td>{{- .Date -}}</td>
     
     		{{- range $j, $w := $exercises -}}
     		  {{- if eq $v.ExerciseId $w.Id -}}
@@ -48,6 +48,19 @@ td, th { padding: 0px 16px; border: 1px solid gray; }
     		<td>{{- .DurationSeconds -}}</td>
     		<td>{{- .DistanceMetres -}}</td>
     		<td>{{- .Notes -}}</td>
+				<td>
+				  <form method="post" action="/remove_workout/">
+						<label for="id" style="display: none;">The id of the accociated with your workout entry</label>
+						<input
+						id="id"
+						name="id"
+						value="{{- .Id -}}"
+						type="number"
+						style="display:none;"
+						required></input>
+					  <button type="sumbit">X</button>
+					</form>
+				</td>
       </tr>
       {{ end }}
     </tbody>

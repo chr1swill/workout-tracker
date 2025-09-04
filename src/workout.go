@@ -28,7 +28,7 @@ func (w *Workout)FromFormValuesCheckValidity(r *http.Request) bool {
 }
 
 func (w *Workout)TimeStamp() {
-	w.Date = time.Now();
+	w.Date = time.Now().Format(time.DateTime);
 }
 
 func validasignintofloat64value(valid *bool, r *http.Request, wlvalue *float64, formvalue string) {
@@ -100,14 +100,12 @@ func (w *Workout)validasignnotes(valid *bool, r *http.Request) {
 }
 
 func(w *Workout)InsertToDB(db *sql.DB) error {
-	var b []byte;
 	var err error;
 	var tx *sql.Tx;
 
 	tx, err = db.Begin();
 	check(err);
 
-	b, err = w.Date.MarshalText();
 	check_rollback(&err, tx);
 	if err != nil { return err };
 
@@ -119,7 +117,7 @@ func(w *Workout)InsertToDB(db *sql.DB) error {
 			values (?, ?, ?, ?, ?, ?, ?);`,
 			w.ExerciseId, w.Weight,
 			w.DurationSeconds, w.NReps,
-			w.DistanceMetres, b, w.Notes);
+			w.DistanceMetres, w.Date, w.Notes);
 	check_rollback(&err, tx);
 	if err != nil { return err };
 
@@ -131,4 +129,3 @@ func(w *Workout)InsertToDB(db *sql.DB) error {
 		return nil;
 	}
 }
-

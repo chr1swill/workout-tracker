@@ -4,7 +4,6 @@ import (
   "database/sql"
   "net/http"
 	"reflect"
-	"time"
 	"fmt"
 )
 
@@ -56,12 +55,13 @@ func (e *Exercise)InsertToDB(db *sql.DB) error {
 }
 
 type Workout struct {
+	Id              uint64
 	ExerciseId      uint64
 	Weight          float64
 	DurationSeconds uint64
 	NReps           uint64
 	DistanceMetres  uint64
-	Date            time.Time
+	Date            string
 	Notes           string
 }
 
@@ -80,6 +80,7 @@ func initdb(db *sql.DB) error {
 	  name string unique not null);
 
   create table if not exists workouts(
+	  id integer primary key autoincrement,
 	  exerciseid integer not null,
 	  weight real not null,
 		durationseconds integer not null,
@@ -232,8 +233,8 @@ func dbselectallworkouts(db *sql.DB) ([]Workout, error) {
 		check_rollback(&err, tx);
 		if err != nil { return nil, err };
 
-		err = item.Date.UnmarshalText(b);
-		if err != nil { return nil, err };
+		//err = item.Date.UnmarshalText(b);
+		//if err != nil { return nil, err };
 
 		result = append(result, item);
 	}
