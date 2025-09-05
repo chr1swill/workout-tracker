@@ -29,6 +29,9 @@ func check_rollback(err *error, tx *sql.Tx) {
 	}
 }
 
+var ADJUSTABLE_WEIGHT_SET_VALUES = []float32{ 0.0, 5.0, 8.3, 9.2, 12.5,
+			11.5, 15, 16, 19.3, 18.5, 22.5, 27.5, 32,
+			34, 38.5, 40.5, 45}
 func main() {
 	var err error;
 	var db *sql.DB;
