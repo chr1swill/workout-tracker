@@ -15,6 +15,13 @@ const (
   WNOTESMAXLEN       = 256
 )
 
+type User struct {
+	Id             uint64
+	Email          string
+	HashedPassword string
+	CreationDate   string
+}
+
 type Exercise struct {
 	Id   uint64
 	Name string
@@ -329,86 +336,4 @@ func dbselectallexercises(db *sql.DB) ([]Exercise, error) {
 	} else {
 		return result, nil;
 	}
-}
-
-func dbselectallworkouts(db *sql.DB) ([]Workout, error) {
-	var err error;
-	var tx *sql.Tx;
-	var item Workout;
-	var result []Workout;
-	var rows *sql.Rows;
-
-	tx, err = db.Begin();
-	if err != nil { return nil, err };
-	
-	rows, err = tx.Query("select * from workouts;");
-	check_rollback(&err, tx);
-	if err != nil { return nil, err };
-  defer rows.Close();
-  
-	for rows.Next() {
-		var b []byte;
-		err = rows.Scan(&item.ExerciseId,
-		&item.Weight, &item.DurationSeconds, &item.NReps,
-		&item.DistanceMetres, &b, &item.Notes);
-		check_rollback(&err, tx);
-		if err != nil { return nil, err };
-
-		//err = item.Date.UnmarshalText(b);
-		//if err != nil { return nil, err };
-
-		result = append(result, item);
-	}
-
-	err = tx.Commit()
-	check_rollback(&err, tx);
-	if err != nil {
-		return nil, err;
-	} else {
-		return result, nil;
-	}
-}
-
-func intodbtransation(db *sql.DB, handler func(tx *sql.Tx) error) error {
-	var err error;
-	var tx *sql.Tx;
-
-	tx, err = db.Begin();
-	check(err);
-
-	err = handler(tx);
-	check_rollback(&err, tx);
-	if err != nil { return err };
-
-	err = tx.Commit()
-	check_rollback(&err, tx);
-	if err != nil {
-		return err;
-	} else {
-		return nil;
-	}
-}
-
-func dbinsertexercises(db *sql.DB, e *Exercise) error {
-	var err error;
-
-	return intodbtransation(db, func(tx *sql.Tx) error {
-			_, err = tx.Exec(`
-					insert into exercises(name) values (?);`, e.Name);
-			return err;
-	});
-}
-
-func dbinsertworkoutlog(db *sql.DB, w *Workout) error {
-	var err error;
-
-	return intodbtransation(db, func(tx *sql.Tx) error {
-			_, err = tx.Exec(`
-					insert into workouts(exerciseid,
-					weightid, date, n_reps, notes, durationseconds, distancemetres)
-					values (?, ?, ?, ?, ?, ?, ?);`,
-					w.ExerciseId, w.Weight, w.Date,
-					w.NReps, w.Notes, w.DurationSeconds, w.DistanceMetres);
-			return err;
-	});
 }
