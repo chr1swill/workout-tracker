@@ -59,14 +59,12 @@ func main() {
 		var tx *sql.Tx;
 
 		s = r.FormValue("id");
-		fmt.Printf("got back id=%s\n", s);
 		if  s == "" {
 			http.Redirect(w, r, "/all_workouts/", http.StatusSeeOther);
 			return;
 		}
 
 		id, err = strconv.ParseUint(s, 10, 64);
-		fmt.Printf("id as uint64=%d\n", id);
 		if err != nil {
 			fmt.Printf("strconv.ParseUint - %v\n", err);
 			http.Redirect(w, r, "/all_workouts/", http.StatusSeeOther);
