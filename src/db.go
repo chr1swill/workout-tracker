@@ -242,34 +242,6 @@ func initdb(db *sql.DB) error {
 	} else {        return nil; }
 }
 
-func gettable[T any](rows *sql.Rows) ([]T, error) {
-	var n_struct_members int;
-	var _struct reflect.Value;
-	var field reflect.Value;
-	var members []interface{}
-	var table []T;
-	var member T;
-
-	for rows.Next() {
-		_struct = reflect.ValueOf(&member).Elem();
-		n_struct_members = _struct.NumField();
-		members = make([]interface{}, n_struct_members);
-
-		for i := 0; i < n_struct_members; i++ {
-			field = _struct.Field(i);
-			members[i] = field.Addr().Interface();
-		}
-
-		if err := rows.Scan(members...); err != nil {
-			return nil, err;
-		}
-
-		table = append(table, member);
-	}
-
-	return table, nil;
-}
-
 func dbinsert[T any](db *sql.DB, item T) error {
 	var err error;
 	var tx *sql.Tx;
