@@ -112,7 +112,7 @@ func main() {
 		if wl.FromFormValuesCheckValidity(r) {
 			wl.TimeStamp();
 
-			err = wl.InsertToDB(db);
+			err = dbinsert[Workout](db, wl);
       if  err != nil {
 				fmt.Printf("error wl.inserttodb - %v\n", err);
 			}
@@ -132,9 +132,9 @@ func main() {
 		var e Exercise;
 
 		if e.FromFormValuesCheckValidity(r) {
-		  err = e.InsertToDB(db);
+			err = dbinsert[Exercise](db, e);
 		  if err != nil {
-		    fmt.Println("exercise.InsertToDB - %v", err);
+		    fmt.Printf("dbinsert[Exercise] - %v\n", err);
 		  }
 		}
 
@@ -187,7 +187,7 @@ func main() {
 		  Weights   []float32
 		};
 
-		data.Exercises, err = dbselectallexercises(db);
+		data.Exercises, err = dbselectall[Exercise](db, "exercises");
 		if err != nil {
 		  http.Error(w, "Internal server error",
 			http.StatusInternalServerError);

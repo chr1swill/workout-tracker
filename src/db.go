@@ -5,6 +5,7 @@ import (
   "net/http"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 	"fmt"
 )
@@ -13,6 +14,7 @@ const (
   ExerciseNameLenMin = 1
   ExerciseNameLenMax = 32
   WNOTESMAXLEN       = 256
+	SQLITE3_COL_MAX    = 2000
 )
 
 type User struct {
@@ -67,6 +69,7 @@ func (e *Exercise)InsertToDB(db *sql.DB) error {
 type Workout struct {
 	Id              uint64
 	ExerciseId      uint64
+	UserId          uint64
 	Weight          float64
 	DurationSeconds uint64
 	NReps           uint64
@@ -174,11 +177,11 @@ func(w *Workout)InsertToDB(db *sql.DB) error {
 
 	_, err = tx.Exec(
 			`insert into workouts(
-			exerciseid, weight,
+			exerciseid, userid, weight,
 			durationseconds, nreps,
 			distancemetres, date, notes)
 			values (?, ?, ?, ?, ?, ?, ?);`,
-			w.ExerciseId, w.Weight,
+			w.ExerciseId, w.UserId, w.Weight,
 			w.DurationSeconds, w.NReps,
 			w.DistanceMetres, w.Date, w.Notes);
 	check_rollback(&err, tx);
@@ -203,6 +206,12 @@ func initdb(db *sql.DB) error {
 	_, err = tx.Exec(`
 	pragma foreign_keys = ON;
 
+	create table if not exists users(
+	  id integer primary key autoincrement,
+		email string unique not null,
+		hashedpassword string not null,
+    creationdate string not null);
+
 	create table if not exists exercises(
 	  id integer primary key autoincrement,
 	  name string unique not null);
@@ -210,14 +219,17 @@ func initdb(db *sql.DB) error {
   create table if not exists workouts(
 	  id integer primary key autoincrement,
 	  exerciseid integer not null,
+		userid integer not null,
 	  weight real not null,
 		durationseconds integer not null,
 	  nreps integer not null,
 	  distancemetres integer not null,
-	  date integer not null,
+	  date string not null,
 	  notes string,
 	  foreign key (exerciseid)
  	    references exercises (id)
+		foreign key (userid)
+		  references users (id)
 	);`);
 	check_rollback(&err, tx);
 	if err != nil {
@@ -241,8 +253,6 @@ func gettable[T any](rows *sql.Rows) ([]T, error) {
 	for rows.Next() {
 		_struct = reflect.ValueOf(&member).Elem();
 		n_struct_members = _struct.NumField();
-		// instead of columns should be called "struct fields/members"
-		// duck type struct builde
 		members = make([]interface{}, n_struct_members);
 
 		for i := 0; i < n_struct_members; i++ {
@@ -258,6 +268,85 @@ func gettable[T any](rows *sql.Rows) ([]T, error) {
 	}
 
 	return table, nil;
+}
+
+func dbinsert[T any](db *sql.DB, item T) error {
+	var err error;
+	var tx *sql.Tx;
+	var n_fields int;
+	var has_field_id bool;
+	var sb strings.Builder;
+	var _type reflect.Type;
+	var members []interface{};
+	var _struct reflect.Value;
+
+	_struct = reflect.ValueOf(&item).Elem();
+	n_fields = _struct.NumField();
+	_type = _struct.Type();
+
+	if _struct.Kind() != reflect.Struct {
+		return fmt.Errorf("dbinsert - generic type was not of Kind() -> reflect.Struct");
+	}
+
+	if n_fields > SQLITE3_COL_MAX {
+		return fmt.Errorf("dbinsert - struct number of fields exceeds the number of columns allowed in a sqlite3 table");
+	}
+
+  _, err = sb.WriteString("insert into ");
+	if err != nil { return err; }
+
+	_, err = sb.WriteString(fmt.Sprintf("%ss(",
+				strings.ToLower(_type.Name())));
+	if err != nil { return err; }
+
+	has_field_id = false;
+	for i := range n_fields {
+		var fieldname string;
+
+		fieldname = strings.ToLower(_type.Field(i).Name);
+		if fieldname != "id" {
+			members = append(members, _struct.Field(i).Addr().Interface());
+
+			if i == n_fields - 1 {
+				_, err = sb.WriteString(fmt.Sprintf("%s", fieldname));
+				if err != nil { return err; }
+			} else {
+				_, err = sb.WriteString(fmt.Sprintf("%s,", fieldname));
+				if err != nil { return err; }
+			}
+		} else {
+			has_field_id = true;
+		}
+  }	
+
+	_, err = sb.WriteString(") values (?");
+	if err != nil { return err; }
+
+	if has_field_id {
+		_, err = sb.WriteString(strings.Repeat(",?", n_fields - 2));
+		if err != nil { return err; }
+	} else {
+		_, err = sb.WriteString(strings.Repeat(",?", n_fields - 1));
+		if err != nil { return err; }
+	}
+
+	_, err = sb.WriteString(");");
+	if err != nil { return err; }
+
+	tx, err = db.Begin();
+	if err != nil { return err; }
+	
+	_, err = tx.Exec(sb.String(), members...);
+	check_rollback(&err, tx);
+	if err != nil { return err };
+
+	err = tx.Commit();
+	check_rollback(&err, tx);
+	if err != nil {
+		return err;
+	} else {
+		return nil;
+	}
 }
 
 func dbselectall[T any](db *sql.DB, table string) ([]T, error) {
@@ -303,37 +392,5 @@ func dbselectall[T any](db *sql.DB, table string) ([]T, error) {
 		return nil, err;
 	} else {
 		return tabledata, nil;
-	}
-}
-
-func dbselectallexercises(db *sql.DB) ([]Exercise, error) {
-	var err error;
-	var tx *sql.Tx;
-	var item Exercise;
-	var result []Exercise;
-	var rows *sql.Rows;
-
-	tx, err = db.Begin();
-	if err != nil { return nil, err };
-	
-	rows, err = tx.Query("select * from exercises;");
-	check_rollback(&err, tx);
-	if err != nil { return nil, err };
-  defer rows.Close();
-  
-	for rows.Next() {
-		err = rows.Scan(&item.Id, &item.Name);
-		check_rollback(&err, tx);
-		if err != nil { return nil, err };
-
-		result = append(result, item);
-	}
-
-	err = tx.Commit()
-	check_rollback(&err, tx);
-	if err != nil {
-		return nil, err;
-	} else {
-		return result, nil;
 	}
 }
