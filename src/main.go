@@ -14,6 +14,12 @@ const (
 	DBFILEPATH = "./file.db"
 )
 
+var err error;
+// just a runtime const lol...
+var ADJUSTABLE_WEIGHT_SET_VALUES = []float32{
+	0.0, 5.0, 8.3, 9.2, 12.5, 11.5, 15, 16, 19.3,
+	18.5, 22.5, 27.5, 32, 34, 38.5, 40.5, 45};
+		
 func check(err error) {
 	if err != nil {
 		panic(err);
@@ -29,184 +35,184 @@ func check_rollback(err *error, tx *sql.Tx) {
 	}
 }
 
-// really a const lol...
-var ADJUSTABLE_WEIGHT_SET_VALUES = []float32{
-	0.0, 5.0, 8.3, 9.2, 12.5, 11.5, 15, 16, 19.3,
-	18.5, 22.5, 27.5, 32, 34, 38.5, 40.5, 45};
-		
-func main() {
-	var err error;
-	var db *sql.DB;
-	var mux *http.ServeMux;
-	var tmpl *template.Template;
+type App struct {
+	Mux  *http.ServeMux;
+	DB   *sql.DB;
+	Tmpl *template.Template;
+}
 
-	db, err = sql.Open("sqlite", DBFILEPATH);
-	check(err);
-	defer db.Close();
+func (a *App) remove_workout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed",
+				http.StatusMethodNotAllowed);
+		return;
+	}
 
-	err = initdb(db);
-	check(err);
+	var s string;
+	var id uint64;
+	var tx *sql.Tx;
 
-	mux = http.NewServeMux();
-
-	tmpl = template.Must(template.ParseGlob("tmpl/*.html"));
-
-	mux.HandleFunc("/remove_workout/", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed",
-			http.StatusMethodNotAllowed);
-			return;
-		}
-
-		var s string;
-    var id uint64;
-    var err error;
-		var tx *sql.Tx;
-
-		s = r.FormValue("id");
-		if  s == "" {
-			http.Redirect(w, r, "/all_workouts/", http.StatusSeeOther);
-			return;
-		}
-
-		id, err = strconv.ParseUint(s, 10, 64);
-		if err != nil {
-			fmt.Printf("strconv.ParseUint - %v\n", err);
-			http.Redirect(w, r, "/all_workouts/", http.StatusSeeOther);
-			return;
-		}
-
-		tx, err  = db.Begin();
-		if err != nil {
-			fmt.Printf("db.Begin() - %v\n", err);
-			http.Redirect(w, r, "/all_workouts/", http.StatusSeeOther);
-			return;
-		}
-
-		_, err = tx.Exec("delete from workouts where id = ?;", id);
-		check_rollback(&err, tx); 
-		if err != nil {
-			fmt.Printf("tx.Exec - %v\n", err);
-			http.Redirect(w, r, "/all_workouts/", http.StatusSeeOther);
-			return;
-		}
-
-		err = tx.Commit();
-		check_rollback(&err, tx); 
-		if err != nil { fmt.Printf("tx.Commit() - %v\n", err); }
-
+	s = r.FormValue("id");
+	if  s == "" {
 		http.Redirect(w, r, "/all_workouts/", http.StatusSeeOther);
 		return;
-	});
+	}
 
-	mux.HandleFunc("/add_workout_log/",
-	func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed",
-			http.StatusMethodNotAllowed);
-			return
+	id, err = strconv.ParseUint(s, 10, 64);
+	if err != nil {
+		fmt.Printf("strconv.ParseUint - %v\n", err);
+		http.Redirect(w, r, "/all_workouts/", http.StatusSeeOther);
+		return;
+	}
+
+	tx, err  = a.DB.Begin();
+	if err != nil {
+		fmt.Printf("db.Begin() - %v\n", err);
+		http.Redirect(w, r, "/all_workouts/", http.StatusSeeOther);
+		return;
+	}
+
+	_, err = tx.Exec("delete from workouts where id = ?;", id);
+	check_rollback(&err, tx); 
+	if err != nil {
+		fmt.Printf("tx.Exec - %v\n", err);
+		http.Redirect(w, r, "/all_workouts/", http.StatusSeeOther);
+		return;
+	}
+
+	err = tx.Commit();
+	check_rollback(&err, tx); 
+	if err != nil { fmt.Printf("tx.Commit() - %v\n", err); }
+
+	http.Redirect(w, r, "/all_workouts/", http.StatusSeeOther);
+}
+
+func (a *App) add_workout_log(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed",
+				http.StatusMethodNotAllowed);
+		return
+	}
+
+	var wl Workout;
+
+	if wl.FromFormValuesCheckValidity(r) {
+		wl.TimeStamp();
+
+		err = dbinsert[Workout](a.DB, wl);
+		if  err != nil {
+			fmt.Printf("error wl.inserttodb - %v\n", err);
 		}
-    
-		var wl Workout;
+	}
 
-		if wl.FromFormValuesCheckValidity(r) {
-			wl.TimeStamp();
+	http.Redirect(w, r, "/", http.StatusSeeOther);
+} 
 
-			err = dbinsert[Workout](db, wl);
-      if  err != nil {
-				fmt.Printf("error wl.inserttodb - %v\n", err);
-			}
-		}
+func (a *App) add_exercise_name(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed",
+				http.StatusMethodNotAllowed);
+		return
+	}
 
-		http.Redirect(w, r, "/", http.StatusSeeOther);
-	});
+	var e Exercise;
 
-	mux.HandleFunc("/add_exercise_name/",
-	func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed",
-			http.StatusMethodNotAllowed);
-			return
-		}
-
-		var e Exercise;
-
-		if e.FromFormValuesCheckValidity(r) {
-			err = dbinsert[Exercise](db, e);
-		  if err != nil {
-		    fmt.Printf("dbinsert[Exercise] - %v\n", err);
-		  }
-		}
-
-		http.Redirect(w, r, "/", http.StatusSeeOther);
-	});
-
-	mux.HandleFunc("/all_workouts/", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed);
-			return
-		}
-
-		var data struct {
-			Workouts []Workout;
-			Exercises []Exercise;
-		}
-
-		data.Workouts, err = dbselectall[Workout](db, "workouts");
+	if e.FromFormValuesCheckValidity(r) {
+		err = dbinsert[Exercise](a.DB, e);
 		if err != nil {
-			fmt.Printf("dbselectallworkouts - %v\n", err);
-		  http.Error(w, "Internal server error",
-			http.StatusInternalServerError);
-			return
+			fmt.Printf("dbinsert[Exercise] - %v\n", err);
 		}
+	}
 
-		data.Exercises, err = dbselectall[Exercise](db, "exercises");
-		if err != nil {
-		  http.Error(w, "Internal server error",
-			http.StatusInternalServerError);
-			return
-		}
+	http.Redirect(w, r, "/", http.StatusSeeOther);
+}
 
-		err = tmpl.ExecuteTemplate(w, "all_workouts.html", data);
-		if err != nil {
-			fmt.Println(err)
+func (a *App) all_workouts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed);
+		return
+	}
+
+	var data struct {
+		Workouts []Workout;
+		Exercises []Exercise;
+	}
+
+	data.Workouts, err = dbselectall[Workout](a.DB, "workouts");
+	if err != nil {
+		fmt.Printf("dbselectallworkouts - %v\n", err);
+		http.Error(w, "Internal server error",
+				http.StatusInternalServerError);
+		return
+	}
+
+	data.Exercises, err = dbselectall[Exercise](a.DB, "exercises");
+	if err != nil {
+		http.Error(w, "Internal server error",
+				http.StatusInternalServerError);
+		return
+	}
+
+	err = a.Tmpl.ExecuteTemplate(w, "all_workouts.html", data);
+	if err != nil {
+		fmt.Println(err)
 			http.Error(w, "Internal server error",
 					http.StatusInternalServerError);
-			return
-		}
-	});
+		return
+	}
+}
 
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed);
-			return
-		}
+func (a *App) homepage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed);
+		return
+	}
 
-		var data struct{ 
-		  Exercises []Exercise
-		  Weights   []float32
-		};
+	var data struct{ 
+		Exercises []Exercise
+			Weights   []float32
+	};
 
-		data.Exercises, err = dbselectall[Exercise](db, "exercises");
-		if err != nil {
-		  http.Error(w, "Internal server error",
-			http.StatusInternalServerError);
-			return
-		}
+	data.Exercises, err = dbselectall[Exercise](a.DB, "exercises");
+	if err != nil {
+		http.Error(w, "Internal server error",
+				http.StatusInternalServerError);
+		return
+	}
 
-		data.Weights = ADJUSTABLE_WEIGHT_SET_VALUES;
+	data.Weights = ADJUSTABLE_WEIGHT_SET_VALUES;
 
-		err = tmpl.ExecuteTemplate(w, "index.html", data);
-		if err != nil {
-			fmt.Println(err)
+	err = a.Tmpl.ExecuteTemplate(w, "index.html", data);
+	if err != nil {
+		fmt.Println(err)
 			http.Error(w, "Internal server error",
 					http.StatusInternalServerError);
-			return
-		}
-	});
+		return
+	}
+}
+
+func main() {
+	var a App;
+
+	a.DB, err = sql.Open("sqlite", DBFILEPATH);
+	check(err);
+	defer a.DB.Close();
+
+	err = initdb(a.DB);
+	check(err);
+
+	a.Mux = http.NewServeMux();
+
+	a.Tmpl = template.Must(template.ParseGlob("tmpl/*.html"));
+
+	a.Mux.HandleFunc("/remove_workout/", a.remove_workout);
+	a.Mux.HandleFunc("/add_workout_log/", a.add_workout_log);
+	a.Mux.HandleFunc("/add_exercise_name/", a.add_exercise_name);
+	a.Mux.HandleFunc("/all_workouts/", a.all_workouts);
+	a.Mux.HandleFunc("/", a.homepage);
 
 	fmt.Printf("server running on port %s\n", PORT);
-	err = http.ListenAndServe(PORT, mux);
+	err = http.ListenAndServe(PORT, a.Mux);
 	if (err != nil) {
 		panic(err);
 	}
