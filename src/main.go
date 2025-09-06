@@ -162,6 +162,20 @@ func (a *App) all_workouts(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (a *App) login(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed);
+		return;
+	}
+	var email, password string;
+
+	email = r.FormValue("email");
+	password = r.FormValue("password");
+
+	// for now
+	http.Redirect(w, r, "/", http.StatusSeeOther);
+}
+
 func (a *App) homepage(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed);
@@ -182,11 +196,28 @@ func (a *App) homepage(w http.ResponseWriter, r *http.Request) {
 
 	data.Weights = ADJUSTABLE_WEIGHT_SET_VALUES;
 
-	err = a.Tmpl.ExecuteTemplate(w, "index.html", data);
+	err = a.Tmpl.ExecuteTemplate(w, "home.html", data);
 	if err != nil {
-		fmt.Println(err)
-			http.Error(w, "Internal server error",
-					http.StatusInternalServerError);
+		fmt.Println(err);
+		http.Error(w, "Internal server error",
+				http.StatusInternalServerError);
+		return
+	}
+}
+
+func (a *App) indexpage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		fmt.Println(err);
+		http.Error(w, "Method not allowed",
+				http.StatusMethodNotAllowed);
+			return
+	}
+
+	err = a.Tmpl.ExecuteTemplate(w, "index.html", nil);
+	if err != nil {
+		fmt.Println(err);
+		http.Error(w, "Internal server error",
+				http.StatusInternalServerError);
 		return
 	}
 }
@@ -209,7 +240,9 @@ func main() {
 	a.Mux.HandleFunc("/add_workout_log/", a.add_workout_log);
 	a.Mux.HandleFunc("/add_exercise_name/", a.add_exercise_name);
 	a.Mux.HandleFunc("/all_workouts/", a.all_workouts);
-	a.Mux.HandleFunc("/", a.homepage);
+	a.Mux.HandleFunc("/login/", a.login);
+	a.Mux.HandleFunc("/home/", a.homepage);
+	a.Mux.HandleFunc("/", a.indexpage);
 
 	fmt.Printf("server running on port %s\n", PORT);
 	err = http.ListenAndServe(PORT, a.Mux);

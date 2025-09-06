@@ -1,104 +1,42 @@
 <!doctype html>
 <html>
   <head>
-    <title>Home page</title>
-		<style>
-		* { background-color: black; color: lightgray; }
-		header { display: flex; align-items: center; gap: 8px; }
-		.h1, header a { font-size: 18px; }
-		input { background-color: black; color: lightgray; border: 1px solid lightgray; }
-		select { background-color: black; }
-		fieldset { border: none ; }
-		</style>
-  </head>
-  <body>
-	  <header>
-      <a href="/all_workouts">All Workouts</a>
-	    <h1 class="h1">Home Page</h1>
-		</header>
-
-		<section>
-		  <form method="post" action="/add_exercise_name/">
-		  	<fieldset>
-		  	  <label for="name">Add New Exercise:</label>
-		  	  <input id="name" name="name" min="1" max="32" required></input>
-		  	</fieldset>
-
-		    <button type="submit">submit</button>
-		  </form>
-		  </section>
-
-		<section>
-		  <form method="post" action="/add_workout_log/">
-		    <fieldset>
-		  		<label for="exercise">Choose Excercise:</label>
-		  		<select id="exercise" name="exercise" required>
-					  {{ range .Exercises }}
-		  		  <option 
-						value="{{ .Id }}">{{ .Name }}</option>
-					  {{ end }}
-		  		</select>
-		    </fieldset>
-
-		    <fieldset>
-		  		<label for="weight">Weight Used:</label>
-		  		<select id="weight" name="weight" required>
-					  {{ range .Weights }}
-						<option value="{{ . }}">{{- . }} lbs</option>
-						{{ end }}
-		  		</select>
-		    </fieldset>
-
-		  	<fieldset>
-		  	  <label
-					for="nreps">Number of Reps:</label>
-		  	  <input
-					id="nreps"
-					name="nreps"
-					type="number"
-					inputmode="numeric"
-					value="1"
-					min="1"
-					required></input>
-		  	</fieldset>
-
-		  	<fieldset>
-		  	  <label
-					for="durationseconds">Duration In Seconds:</label>
-		  	  <input
-					id="durationseconds"
-					name="durationseconds"
-					type="number"
-					inputmode="numeric"
-					value="0"
-					required></input>
-		  	</fieldset>
-
-		  	<fieldset>
-		  	  <label
-					for="nreps">Distance Travelled in Metres:</label>
-		  	  <input
-					id="distancemetres"
-					name="distancemetres"
-					type="number"
-					inputmode="numeric"
-					value="0"
-					required></input>
-		  	</fieldset>
-
-		  	<fieldset>
-		  	  <label
-					for="notes">Notes:</label>
-		  	  <input
-					id="notes"
-					name="notes"
-					type="text"
-					min="0"
-					max="256"
-				  ></input>
-		  	</fieldset>
-		    <button type="submit">submit</button>
-		  </form>
-		</section>
-  </body>
+    <title>Simple Exercise Tracking</title>
+	</head>
+	<body>
+	  <h1>The Simple Exercise Tracker</h1>
+		<p>This app is not made to be feature rich, but only to get the job done.</p>
+		<p>If you like to workout but feel you have grown out of logging exercise with a pen and paper we got you covered</p>
+		<h2>Features:</h2>
+		<ul>
+		  <li>Cross-platfrom (works everywhere there is a web browser)</li>
+		  <li>Add Custom Exercises</li>
+		  <li>Log Your Workouts</li>
+		  <li>Display All Your Workouts</li>
+		</ul>
+		<form method="post" action="/login/">
+		  <legend>Login to your account:</legend>
+			<div>
+		    <label for="email">Email: </label>
+		    <input id="email" name="email" type="email"></input>
+			</div>
+			<div>
+		    <label for="password">Password: </label>
+		    <input id="password" name="password" type="password"></input>
+			</div>
+		  <button type="sumbit">Sumbit</button>
+		</form>
+		<form method="post" action="/signup/">
+		  <legend>Signup for an account:</legend>
+			<div>
+		    <label for="email">Email: </label>
+		    <input id="email" name="email" type="email"></input>
+			</div>
+			<div>
+		    <label for="password">Password: </label>
+		    <input id="password" name="password" type="password"></input>
+			</div>
+		  <button type="sumbit">Sumbit</button>
+		</form>
+	</body>
 </html>
